@@ -1,0 +1,522 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>Offline Quiz / Typing / Exam</title>
+
+<style>
+:root{
+  --card:#121826;
+  --border:#1f2937;
+  --text:#e5e7eb;
+  --muted:#9ca3af;
+  --accent1:#7c7cff;
+  --accent2:#5eead4;
+  --good:#22c55e;
+  --bad:#ef4444;
+}
+
+*{box-sizing:border-box}
+
+body{
+  margin:0;
+  height:100vh;
+  display:flex;
+  justify-content:center;
+  align-items:center;
+  background:radial-gradient(circle at top,#1a1f2b,#0b0e14);
+  font-family:system-ui,sans-serif;
+  color:var(--text);
+}
+
+.box{
+  width:800px;
+  padding:48px;
+  background:var(--card);
+  border-radius:26px;
+  border:1px solid var(--border);
+  box-shadow:0 40px 100px rgba(0,0,0,.7);
+  position:relative;
+}
+
+.hidden{display:none!important}
+.row{display:flex;gap:26px;margin-top:30px}
+
+button,input,select{
+  width:100%;
+  padding:18px;
+  font-size:20px;
+  border-radius:16px;
+  border:1px solid var(--border);
+  background:#0f172a;
+  color:var(--text);
+  margin-top:24px;
+}
+
+button{cursor:pointer;font-weight:600}
+
+.primary{
+  background:linear-gradient(135deg,var(--accent1),var(--accent2));
+  color:#020617;
+  border:none;
+}
+
+.source{
+  background:linear-gradient(135deg,#1e293b,#020617);
+}
+.source:hover,
+.source.selected{
+  background:linear-gradient(135deg,var(--accent1),var(--accent2));
+  color:#020617;
+}
+
+#question{
+  font-size:26px;
+  margin:36px 0 26px;
+  min-height:1.5em;
+}
+
+#display{
+  display:none;
+  margin-top:26px;
+  padding:26px;
+  background:#020617;
+  border-radius:18px;
+  font-size:22px;
+}
+
+.correct{color:var(--good)}
+.wrong{color:var(--bad)}
+
+#info{
+  margin-top:22px;
+  font-size:18px;
+  color:var(--muted);
+}
+
+#backMenu{margin-top:40px}
+
+/* TOP TIMER */
+#timerTop{
+  position:absolute;
+  top:18px;
+  left:50%;
+  transform:translateX(-50%);
+  padding:10px 20px;
+  border-radius:14px;
+  font-weight:700;
+  background:linear-gradient(135deg,var(--accent1),var(--accent2));
+  color:#020617;
+  display:none;
+  pointer-events:none;
+}
+
+/* SIDE TOOLS */
+.sideTools{
+  position:absolute;
+  right:-220px;
+  top:50%;
+  transform:translateY(-50%);
+  width:180px;
+  display:flex;
+  flex-direction:column;
+  gap:16px;
+}
+
+.tool{
+  padding:14px;
+  border-radius:14px;
+  background:#020617;
+  border:1px solid var(--border);
+  cursor:pointer;
+  font-weight:600;
+  text-align:center;
+}
+
+.tool.active{
+  background:linear-gradient(135deg,var(--accent1),var(--accent2));
+  color:#020617;
+}
+
+.tool select{
+  margin-top:10px;
+  padding:10px;
+  font-size:16px;
+}
+</style>
+</head>
+
+<body>
+
+<div class="box">
+
+<div id="timerTop"></div>
+
+<!-- MENU -->
+<div id="menu">
+  <h2 style="text-align:center;margin-bottom:40px;">Offline Practice</h2>
+
+  <div class="row">
+    <button id="useTXT" class="source">Import TXT</button>
+    <button id="useHardcoded" class="source">Built-in Topics</button>
+  </div>
+
+  <input type="file" id="file" accept=".txt" class="hidden">
+  <select id="category" class="hidden"></select>
+
+  <select id="mode" class="hidden">
+    <option value="">Choose mode</option>
+    <option value="quiz">Quiz</option>
+    <option value="typing">Speed Typing</option>
+    <option value="exam">Exam</option>
+  </select>
+
+  <button id="start" class="primary hidden">Start</button>
+</div>
+
+<!-- SESSION -->
+<div id="session" class="hidden">
+  <h3 id="question"></h3>
+  <div id="display"></div>
+  <input id="answer" class="hidden" placeholder="Type answer and press ENTER">
+
+  <div class="row hidden" id="controls">
+    <button id="hintBtn">Hint</button>
+    <button id="skipBtn">Skip</button>
+  </div>
+
+  <div id="info"></div>
+  <button id="backMenu" class="hidden">Return to Menu</button>
+</div>
+
+<!-- SIDE TOOLS -->
+<div class="sideTools">
+  <button id="randomToggle" class="tool">Randomizer: OFF</button>
+  <div id="timerToggle" class="tool">
+    Timer: OFF
+    <select id="timerSelect" class="hidden">
+      <option value="60">1 min</option>
+      <option value="120">2 min</option>
+      <option value="180">3 min</option>
+      <option value="240">4 min</option>
+      <option value="360">6 min</option>
+    </select>
+  </div>
+</div>
+
+</div>
+
+<script>
+/* ================= DATA ================= */
+const hardcodedData={
+  "Topic 1": [
+    { q: "Capital of France", a: "Paris", h: "City of love" },
+    { q: "2 + 2", a: "4", h: "Basic math" }
+  ],
+
+  "Geography": [
+    { q: "Capital of Japan", a: "Tokyo", h: "Largest city in Japan" },
+    { q: "Longest river in the world", a: "Nile", h: "Africa" },
+    { q: "Mount Everest is in which range?", a: "Himalayas", h: "Asia" }
+  ],
+
+  "Math": [
+    { q: "5 × 6", a: "30", h: "Multiplication" },
+    { q: "Square root of 81", a: "9", h: "Perfect square" },
+    { q: "12 ÷ 4", a: "3", h: "Division" }
+  ],
+
+  "Programming Basics": [
+    { q: "HTML stands for?", a: "HyperText Markup Language", h: "Web structure" },
+    { q: "CSS is used for?", a: "Styling", h: "Design" },
+    { q: "JS keyword to declare a variable", a: "let", h: "ES6" }
+  ]
+};
+
+let data=[], skipped=[], i=0, mode="";
+let correct=0, attempts=0;
+let totalChars=0, correctChars=0;
+let examWrong=[];
+
+/* TIMER / RANDOM STATES */
+let useRandom=false;
+let timerOn=false;
+let timerSeconds=0;
+let timerInterval=null;
+
+/* ELEMENTS */
+const menu=document.getElementById("menu");
+const session=document.getElementById("session");
+const file=document.getElementById("file");
+const category=document.getElementById("category");
+const modeSel=document.getElementById("mode");
+const startBtn=document.getElementById("start");
+const q=document.getElementById("question");
+const display=document.getElementById("display");
+const a=document.getElementById("answer");
+const info=document.getElementById("info");
+const controls=document.getElementById("controls");
+const backMenu=document.getElementById("backMenu");
+const timerTop=document.getElementById("timerTop");
+
+/* HELPERS */
+function shuffle(arr){
+  for(let i=arr.length-1;i>0;i--){
+    const j=Math.floor(Math.random()*(i+1));
+    [arr[i],arr[j]]=[arr[j],arr[i]];
+  }
+}
+
+function formatTime(sec){
+  const m=Math.floor(sec/60);
+  const s=String(sec%60).padStart(2,"0");
+  return m>0 ? `${m}:${s}` : `${sec}s`;
+}
+
+function showTimer(sec){
+  timerTop.style.display="block";
+  timerTop.textContent=`⏳ ${formatTime(sec)}`;
+}
+
+function hideTimer(){
+  timerTop.style.display="none";
+}
+
+/* TIMER */
+function startTimer(){
+  if(!timerOn||!timerSeconds)return;
+  let remaining=timerSeconds;
+  showTimer(remaining);
+  timerInterval=setInterval(()=>{
+    remaining--;
+    showTimer(remaining);
+    if(remaining<=0){
+      clearInterval(timerInterval);
+      hideTimer();
+      a.disabled=true;
+      q.innerText="⏰ Time's Up!";
+      controls.classList.add("hidden");
+      backMenu.classList.remove("hidden");
+    }
+  },1000);
+}
+
+function stopTimer(){
+  clearInterval(timerInterval);
+  timerInterval=null;
+  hideTimer();
+}
+
+/* SOURCE */
+function selectSource(btn){
+  document.querySelectorAll(".source").forEach(b=>b.classList.remove("selected"));
+  btn.classList.add("selected");
+}
+
+useTXT.onclick=()=>{
+  selectSource(useTXT);
+  file.classList.remove("hidden");
+  category.classList.add("hidden");
+  modeSel.classList.remove("hidden");
+};
+
+useHardcoded.onclick=()=>{
+  selectSource(useHardcoded);
+  file.classList.add("hidden");
+  category.classList.remove("hidden");
+  category.innerHTML=`<option value="">Choose topic</option>`;
+  Object.keys(hardcodedData).forEach(k=>category.innerHTML+=`<option>${k}</option>`);
+  modeSel.classList.remove("hidden");
+};
+
+/* LOAD TXT */
+file.onchange=e=>{
+  const r=new FileReader();
+  r.onload=x=>{
+    data=x.target.result.split("\n").map(l=>l.trim()).filter(l=>l.includes("|")).map(l=>{
+      const [q,a,h]=l.split("|").map(v=>v.trim());
+      return {q,a,h:h||""};
+    });
+    startBtn.classList.remove("hidden");
+  };
+  r.readAsText(e.target.files[0]);
+};
+
+category.onchange=()=>{
+  if(!category.value)return;
+  data=hardcodedData[category.value];
+  startBtn.classList.remove("hidden");
+};
+
+/* START */
+startBtn.onclick=()=>{
+  if(!modeSel.value||!data.length){
+    alert("Please select a mode and load questions.");
+    return;
+  }
+
+  mode=modeSel.value;
+  i=correct=attempts=totalChars=correctChars=0;
+  skipped=[];
+  examWrong=[];
+
+  if(useRandom) shuffle(data);
+
+  stopTimer();
+  a.disabled=false;
+  startTimer();
+
+  menu.classList.add("hidden");
+  session.classList.remove("hidden");
+  a.classList.remove("hidden");
+
+  load();
+};
+
+function load(){
+  if(i>=data.length){
+    if(mode==="exam") return finishExam();
+    return finishPractice();
+  }
+
+  info.innerHTML="";
+  a.value="";
+  q.innerText=data[i].q;
+
+  if(mode==="typing"){
+    display.style.display="block";
+    display.innerText=data[i].a;
+  }else display.style.display="none";
+
+  mode==="exam"?controls.classList.add("hidden"):controls.classList.remove("hidden");
+  a.focus();
+}
+
+/* INPUT */
+a.onkeydown=e=>{
+  if(e.key==="Enter"){
+    e.preventDefault();
+    mode==="exam"?submitExam():check();
+  }
+};
+
+a.oninput=()=>{
+  if(mode!=="typing")return;
+  display.innerHTML=[...data[i].a].map((c,j)=>j<a.value.length?`<span class="${a.value[j]===c?'correct':'wrong'}">${c}</span>`:c).join("");
+};
+
+/* PRACTICE */
+function check(){
+  attempts++;
+  if(mode==="quiz"){
+    if(a.value.trim().toLowerCase()===data[i].a.toLowerCase()){
+      info.innerHTML='<span class="correct">Correct</span>';
+      correct++; i++; setTimeout(load,500);
+    }else info.innerHTML='<span class="wrong">Wrong — try again</span>';
+    return;
+  }
+  if(mode==="typing"){
+    totalChars+=a.value.length;
+    correctChars+=a.value.split("").filter((c,j)=>c===data[i].a[j]).length;
+    i++; load();
+  }
+}
+
+/* EXAM */
+function submitExam(){
+  const user=a.value.trim();
+  const ans=data[i].a;
+  if(user.toLowerCase()!==ans.toLowerCase()){
+    examWrong.push({q:data[i].q,correct:ans,yours:user||"(blank)"});
+  }
+  i++; load();
+}
+
+/* BUTTONS */
+hintBtn.onclick=()=>info.innerHTML=`Hint: ${data[i].h}`;
+skipBtn.onclick=()=>{skipped.push(data[i]);i++;load();};
+
+/* FINISH PRACTICE */
+function finishPractice(){
+  hideTimer();
+  a.classList.add("hidden");
+  controls.classList.add("hidden");
+  q.innerText="Finished 🎉";
+  info.innerHTML="";
+  if(skipped.length){
+    const btn=document.createElement("button");
+    btn.className="primary";
+    btn.textContent=`Retry ${skipped.length} Skipped`;
+    btn.onclick=()=>{
+      data=[...skipped];
+      skipped=[];
+      i=0;
+      a.classList.remove("hidden");
+      load();
+    };
+    info.appendChild(btn);
+  }else backMenu.classList.remove("hidden");
+}
+
+/* FINISH EXAM */
+function finishExam(){
+  hideTimer();
+  a.classList.add("hidden");
+  q.innerText="Exam Finished";
+  const correctCount=data.length-examWrong.length;
+  let html=`<strong>Correct:</strong> ${correctCount}<br><strong>Wrong:</strong> ${examWrong.length}`;
+  if(examWrong.length){
+    html+=`<hr>`;
+    examWrong.forEach((w,i)=>{
+      html+=`
+        <div style="margin-top:14px;">
+          <strong>${i+1}. ${w.q}</strong><br>
+          <span class="wrong">Your answer:</span> ${w.yours}<br>
+          <span class="correct">Correct answer:</span> ${w.correct}
+        </div>`;
+    });
+    html+=`<button class="primary" id="redoWrong">Redo Wrong Questions</button>`;
+  }
+  info.innerHTML=html;
+  backMenu.classList.remove("hidden");
+
+  const redo=document.getElementById("redoWrong");
+  if(redo){
+    redo.onclick=()=>{
+      data=examWrong.map(w=>({q:w.q,a:w.correct}));
+      examWrong=[];
+      i=0;
+      backMenu.classList.add("hidden");
+      a.classList.remove("hidden");
+      load();
+    };
+  }
+}
+
+/* RETURN */
+backMenu.onclick=()=>{
+  stopTimer();
+  location.reload();
+};
+
+/* SIDE TOOLS */
+randomToggle.onclick=()=>{
+  useRandom=!useRandom;
+  randomToggle.classList.toggle("active",useRandom);
+  randomToggle.textContent=`Randomizer: ${useRandom?"ON":"OFF"}`;
+};
+
+timerToggle.onclick=e=>{
+  if(e.target===timerSelect)return;
+  timerOn=!timerOn;
+  timerToggle.classList.toggle("active",timerOn);
+  timerSelect.classList.toggle("hidden",!timerOn);
+};
+
+timerSelect.onchange=()=>timerSeconds=parseInt(timerSelect.value);
+timerSelect.onclick=e=>e.stopPropagation();
+timerSelect.onmousedown=e=>e.stopPropagation();
+</script>
+
+</body>
+</html>
